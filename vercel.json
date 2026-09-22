@@ -4,6 +4,10 @@
     {
       "source": "/api/:path*",
       "destination": "https://oil-spil-system-backend.onrender.com/api/:path*"
+    },
+    {
+      "source": "/sar_images/:path*",
+      "destination": "https://oil-spil-system-backend.onrender.com/sar_images/:path*"
     }
   ]
 }
