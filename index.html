@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Oil Spill Intelligence System - Satellite Imagery + AIS for Oil-Spill Attribution</title>
+  
+  <!-- Fonts: Manrope (Headings & Counters) & Inter (Telemetry & UI) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
+  
+  <!-- Leaflet GIS CSS (Local Vendor with CDN fallback) -->
+  <link rel="stylesheet" href="/vendor/leaflet.css" />
+  
+  <!-- Chart.js for Telemetry Charts (Local Vendor) -->
+  <script src="/vendor/chart.umd.min.js"></script>
+
+  <!-- Google Maps JavaScript API SDK -->
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDDAnEjkGBNL9hpnwT8Fy_LSDJ8_JDHboA&libraries=places"></script>
+
+  <!-- Application CSS -->
+  <link rel="stylesheet" href="/css/style.css?v=3.0" />
+
+  <!-- Immediate Session Protection Guard -->
+  <script>
+    (function() {
+      var tok = sessionStorage.getItem('icg_session_token') || localStorage.getItem('icg_session_token');
+      var exp = parseInt(sessionStorage.getItem('icg_session_expires_at') || localStorage.getItem('icg_session_expires_at') || '0', 10);
+      if (!tok || !exp || Date.now() >= exp) {
+        window.location.replace('/login.html');
+      }
+    })();
+  </script>
+</head>
+<body>
+
+  <!-- TOP COMMAND HEADER -->
+  <header class="command-header">
+    <div class="brand-section">
+      <div class="helm-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="9"/>
+          <circle cx="12" cy="12" r="3"/>
+          <line x1="12" y1="3" x2="12" y2="9"/>
+          <line x1="12" y1="15" x2="12" y2="21"/>
+          <line x1="3" y1="12" x2="9" y2="12"/>
+          <line x1="15" y1="12" x2="21" y2="12"/>
+        </svg>
+      </div>
+      <div class="brand-title-group">
+        <h1>OIL SPILL INTELLIGENCE SYSTEM</h1>
+        <p>Detect Oil Spills • Correlate Vessel Movements • Identify Responsible Vessel</p>
+      </div>
+    </div>
+
+    <div class="header-controls">
+      <!-- Scenario Selector -->
+      <div class="scenario-select-wrapper">
+        <span class="scenario-label">Scenario:</span>
+        <select id="scenario-select" class="scenario-dropdown">
+          <option value="scenario-chennai-sih26143">Bay of Bengal (Chennai Offshore) - 13.052° N, 80.318° E</option>
+          <option value="scenario-mumbai-high">Mumbai High Corridor (Arabian Sea) - 19.420° N, 71.310° E</option>
+        </select>
+      </div>
+
+
+
+      <button id="btn-open-tuner-modal" class="btn btn-secondary" title="Adjust Hydrodynamic Drift & AIS Filters">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        Correlation Parameters
+      </button>
+
+      <button class="btn btn-primary" onclick="window.downloadForensicDossier()" title="Download Official PDF Evidence Dossier">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+        </svg>
+        Export Dossier (PDF)
+      </button>
+
+      <!-- SAR Satellite Pass Timeline (from DESIGN.md) -->
+      <div class="sar-timeline-chip" title="Next Synthetic Aperture Radar orbital pass over incident area">
+        <span class="satellite-orbit-dot"></span> Sentinel-1 Pass: 14:48 UTC (+4h 18m)
+      </div>
+
+      <!-- Authenticated Operator & Session Security HUD -->
+      <div class="session-hud-group">
+        <div id="session-countdown-pill" class="session-timer-pill normal" title="Operational session auto-lock countdown (30 min limit)">
+          <span class="timer-icon">⏱</span>
+          <span id="session-countdown-text">30:00</span>
+        </div>
+
+        <div id="header-operator-chip" class="operator-chip" title="Active Maritime Tactical Operator">
+          <span class="operator-badge-dot"></span>
+          <span class="operator-badge-id">ICG-COMMAND-01</span>
+        </div>
+
+        <button id="btn-header-lock" class="btn btn-icon-ghost" title="Lock Terminal (Auto-Locks after 30 min)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          Lock
+        </button>
+
+        <button id="btn-header-logout" class="btn btn-icon-danger" title="Sign Out & Terminate Session">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="live-pill">
+        <span class="pulsing-dot"></span> AIS LIVE
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN WORKSPACE -->
+  <div class="workspace-container">
+    
+    <!-- TACTICAL RAIL (Sidebar from infographic) -->
+    <aside class="tactical-rail">
+      <div class="rail-item active" title="Dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/>
+        </svg>
+        <span>Dash</span>
+      </div>
+      <div class="rail-item" onclick="document.getElementById('modal-upload-sar')?.classList.add('active')" title="Spill Detection">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2a7 7 0 0 1 7 7c0 5-7 13-7 13S5 14 5 9a7 7 0 0 1 7-7z"/><circle cx="12" cy="9" r="2.5"/>
+        </svg>
+        <span>Spill</span>
+      </div>
+      <div class="rail-item" title="Vessel Tracking">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M2 20a2.4 2.4 0 0 0 2 1 2.4 2.4 0 0 0 2-1 2.4 2.4 0 0 1 2-1 2.4 2.4 0 0 1 2 1 2.4 2.4 0 0 0 2 1 2.4 2.4 0 0 0 2-1 2.4 2.4 0 0 1 2-1 2.4 2.4 0 0 1 2 1 2.4 2.4 0 0 0 2 1 2.4 2.4 0 0 0 2-1"/><path d="M4 18L3 14l9-8 9 8-1 4"/>
+        </svg>
+        <span>AIS</span>
+      </div>
+      <div class="rail-item" onclick="document.getElementById('btn-open-tuner-modal').click()" title="Correlation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+        </svg>
+        <span>Correl</span>
+      </div>
+
+      <div class="rail-item" onclick="window.downloadForensicDossier()" title="Reports">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+        </svg>
+        <span>Report</span>
+      </div>
+    </aside>
+
+    <!-- CENTER STAGE (KPIs + GIS Map + Bottom Tray) -->
+    <main class="main-center-stage">
+      
+      <!-- TOP KPI RIBBON -->
+      <section class="kpi-ribbon">
+        <div class="kpi-card severity-alert">
+          <span class="kpi-label">Spill Detected</span>
+          <div class="kpi-value-group">
+            <span class="kpi-value" id="kpi-detected-status">
+              <span class="pulsing-dot" style="background: #e53e3e;"></span> YES
+            </span>
+            <span class="kpi-subtext" style="color: #991b1b; font-weight: 700;">TIER 3</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <span class="kpi-label">Spill Area</span>
+          <div class="kpi-value-group">
+            <span class="kpi-value tnum" id="kpi-spill-area">2.85 km²</span>
+            <span class="kpi-subtext">SAR Active</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <span class="kpi-label">Detected Time</span>
+          <div class="kpi-value-group">
+            <span class="kpi-value tnum" id="kpi-detected-time" style="font-size: 12.5px;">10:30 AM 12 May 2026</span>
+            <span class="kpi-subtext">SAR</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <span class="kpi-label">Centroid Locus</span>
+          <div class="kpi-value-group">
+            <span class="kpi-value tnum" id="kpi-location" style="font-size: 12px;">13.052° N, 80.318° E</span>
+            <span class="kpi-subtext">WGS84</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <span class="kpi-label">Slick Perimeter</span>
+          <div class="kpi-value-group">
+            <span class="kpi-value tnum" id="kpi-spill-perimeter" style="color: #0284c7;">9.21 km</span>
+            <span class="kpi-subtext" id="kpi-spill-perimeter-m">9,210 m</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <span class="kpi-label">Slick Thickness</span>
+          <div class="kpi-value-group">
+            <span class="kpi-value tnum" id="kpi-spill-thickness" style="color: #b45309;">0.25 mm</span>
+            <span class="kpi-subtext" id="kpi-bonn-code">Bonn 5</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <span class="kpi-label">Spill Volume</span>
+          <div class="kpi-value-group">
+            <span class="kpi-value tnum" id="kpi-spill-volume" style="color: #ea580c;">712.5 m³</span>
+            <span class="kpi-subtext" id="kpi-spill-bbl">4,481 bbl</span>
+          </div>
+        </div>
+
+        <div class="kpi-card fleet-kpi-card" id="kpi-card-fleet" title="Click to open Clean-Up Fleet & Volume Calculator" style="cursor: pointer; border-color: #0284c7;">
+          <span class="kpi-label" style="color: #0369a1;">Clean-Up Fleet</span>
+          <div class="kpi-value-group">
+            <span class="kpi-value tnum" id="kpi-fleet-needed" style="font-size: 13px; color: #0369a1;">2 Skim • 1 Tank</span>
+            <span class="kpi-subtext" style="color: #0284c7; font-weight: 700;">CALC ⚙️</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- GIS MAP CANVAS -->
+      <div class="gis-viewport-wrapper">
+        <div id="leaflet-map"></div>
+
+        <!-- Floating Top-Left Map Layer Header Badge (from user screenshot) -->
+        <div class="map-layers-badge-overlay">
+          <div class="layers-badge-header">MAP LAYERS</div>
+          <div class="layers-badge-item">
+            <span class="pulse-dot-orange"></span>
+            <span>AI OIL DETECTION</span>
+          </div>
+        </div>
+
+        <!-- Floating Map Layer Control -->
+        <div class="map-floating-panel">
+          <div class="floating-title">
+            <span>GIS Overlays</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>
+            </svg>
+          </div>
+          <div class="layer-toggle-group">
+            <label class="layer-checkbox-label">
+              <input type="checkbox" id="chk-layer-spill" checked />
+              <span>Oil Slick Boundary (SAR)</span>
+            </label>
+            <label class="layer-checkbox-label">
+              <input type="checkbox" id="chk-layer-buffer" checked />
+              <span>2.2 km Monitoring Buffer</span>
+            </label>
+            <label class="layer-checkbox-label">
+              <input type="checkbox" id="chk-layer-backtrack" checked />
+              <span>Hydrodynamic Backtrack</span>
+            </label>
+            <label class="layer-checkbox-label">
+              <input type="checkbox" id="chk-layer-tracks" checked />
+              <span>AIS Vessel Trajectories</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Map Legend -->
+        <div class="map-legend-box">
+          <div class="legend-title">Legend</div>
+          <div class="legend-item">
+            <span class="legend-color-dot" style="background: radial-gradient(circle, #05080e 40%, #1e293b 80%, #38bdf8 100%); border: 1.5px solid #38bdf8; box-shadow: 0 0 8px rgba(56, 189, 248, 0.65);"></span>
+            <span>Oil Spill Plume (Active Flow)</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color-dot" style="background: #16a34a;"></span>
+            <span>Vessel A (Rank 1)</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color-dot" style="background: #d97706;"></span>
+            <span>Vessel B (Rank 2)</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color-dot" style="background: #8b5cf6;"></span>
+            <span>Vessel C (Rank 3)</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color-dot" style="background: #0ea5e9;"></span>
+            <span>Vessel D</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-line" style="background: #0284c7; border-top: 1px dashed #fff;"></span>
+            <span>Backtrack Drift Path</span>
+          </div>
+        </div>
+
+        <!-- INTELLIGENCE TIMELINE BAR (matching user design) -->
+        <div class="intelligence-timeline-panel">
+          <div class="timeline-header-row">
+            <div class="timeline-title-label">INTELLIGENCE TIMELINE</div>
+            <div class="timeline-status-badge" id="timeline-status-badge">
+              <span class="pulse-dot-orange"></span>
+              <span id="timeline-status-text">CURRENT DETECTION</span>
+            </div>
+          </div>
+          <div class="timeline-btn-group">
+            <button id="btn-timeline-play" class="timeline-btn btn-play-action" title="Play / Pause Timeline Simulation">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+              </svg>
+              <span id="timeline-play-text">PLAY</span>
+            </button>
+            <button class="timeline-btn timeline-step-btn active" data-hours="0">NOW</button>
+            <button class="timeline-btn timeline-step-btn" data-hours="6">+6H</button>
+            <button class="timeline-btn timeline-step-btn" data-hours="12">+12H</button>
+            <button class="timeline-btn timeline-step-btn" data-hours="24">+24H</button>
+            <button class="timeline-btn timeline-step-btn" data-hours="48">+48H</button>
+            <button class="timeline-btn timeline-step-btn" data-hours="72">+72H</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- BOTTOM DOCKED TELEMETRY & CHARTS -->
+      <footer class="bottom-telemetry-tray">
+        
+        <!-- Left: Spill Overview -->
+        <div class="spill-overview-panel">
+          <div class="sar-thumbnail-box">
+            <img src="/sar_images/sentinel1_sar_chennai.png" alt="Sentinel-1 SAR Patch" class="sar-thumbnail-img" />
+            <span class="sar-badge">Sentinel-1 SAR</span>
+          </div>
+          <div class="spill-specs-list">
+            <div class="panel-header-mini" style="margin-bottom: 2px;">
+              <h3>Spill Overview</h3>
+            </div>
+            <div class="spec-row">
+              <span class="spec-label">Spill Area:</span>
+              <span class="spec-value tnum" id="spec-area">2.85 km²</span>
+            </div>
+            <div class="spec-row">
+              <span class="spec-label">Slick Perimeter:</span>
+              <span class="spec-value tnum" id="spec-perimeter" style="color: #0284c7;">9.21 km</span>
+            </div>
+            <div class="spec-row">
+              <span class="spec-label">Avg Thickness:</span>
+              <span class="spec-value tnum" id="spec-thickness" style="color: #b45309;">0.25 mm (250 µm)</span>
+            </div>
+            <div class="spec-row">
+              <span class="spec-label">Spill Volume:</span>
+              <span class="spec-value tnum" id="spec-volume" style="color: #ea580c; font-weight: 700;">712.5 m³ (4,481 bbl)</span>
+            </div>
+            <div class="spec-row">
+              <span class="spec-label">Recovery Fleet:</span>
+              <span class="spec-value tnum" id="spec-fleet" style="color: #0369a1; font-weight: 700;">2 Skimmers • 1 Tanker</span>
+            </div>
+            <div class="spec-row">
+              <span class="spec-label">Containment Booms:</span>
+              <span class="spec-value tnum" id="spec-booms">11.5 km (11,510 m)</span>
+            </div>
+            <div class="spec-row">
+              <span class="spec-label">Centroid:</span>
+              <span class="spec-value tnum" id="spec-centroid">13.052° N, 80.318° E</span>
+            </div>
+            <div class="spec-row">
+              <span class="spec-label">Confidence:</span>
+              <span class="spec-value tnum" id="spec-confidence" style="color: var(--operational-normal);">92%</span>
+            </div>
+            <div class="spec-row">
+              <span class="spec-label">Source:</span>
+              <span class="spec-value" id="spec-source">Sentinel-1 (SAR)</span>
+            </div>
+
+            <!-- Bonn Agreement Hydrocarbon Thickness Scale (Interactive) -->
+            <div style="margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--outline);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
+                <span class="spec-label" style="font-size: 9px; text-transform: uppercase; font-weight: 700;">Bonn Code Thickness Tier:</span>
+                <button type="button" id="btn-tray-calc" class="btn-micro-calc" title="Open Fleet Calculator">Fleet Calculator ⚙️</button>
+              </div>
+              <div class="thickness-scale-bar" title="Click any tier to recalculate spill volume & fleet">
+                <div class="thickness-step step-sheen" data-thickness="0.0001" data-code="1" title="Code 1: Sheen (0.1 µm / 0.0001 mm)"></div>
+                <div class="thickness-step step-rainbow" data-thickness="0.0025" data-code="2" title="Code 2: Rainbow (2.5 µm / 0.0025 mm)"></div>
+                <div class="thickness-step step-metallic" data-thickness="0.025" data-code="3" title="Code 3: Metallic (25 µm / 0.025 mm)"></div>
+                <div class="thickness-step step-discont" data-thickness="0.10" data-code="4" title="Code 4: Discontinuous True Oil (100 µm / 0.1 mm)"></div>
+                <div class="thickness-step step-crude active" data-thickness="0.25" data-code="5" title="Code 5: Continuous Heavy Crude (>200 µm / 0.25 mm) - ACTIVE"></div>
+              </div>
+              <div class="thickness-labels">
+                <span>Sheen</span>
+                <span>Rainbow</span>
+                <span>Metallic</span>
+                <span>Discont</span>
+                <span style="color: #991b1b; font-weight: 700;">Crude</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Spill Area Over Time Chart & Drift Compass -->
+        <div class="chart-panel-wrapper">
+          <div class="panel-header-mini">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <h3>Spill Area Over Time (Fay Spreading Simulation)</h3>
+              <span style="font-size: 11px; color: var(--text-muted);">Current: 0.8 kts @ 45° | Wind: 12 kts @ 60°</span>
+            </div>
+            <!-- Drift Vector Compass Indicator (from DESIGN.md) -->
+            <div class="drift-compass-box" title="Hydrodynamic Surface Drift Vector Alignment">
+              <div class="compass-dial">
+                <div class="compass-needle-current" style="transform: rotate(45deg);" title="Current 45°"></div>
+                <div class="compass-needle-wind" style="transform: rotate(60deg);" title="Wind 60°"></div>
+                <div class="compass-needle-net" style="transform: rotate(52deg);" title="Net Slick Drift 52°"></div>
+              </div>
+              <div class="compass-data">
+                <span class="compass-title">Drift Vector</span>
+                <span class="compass-metric tnum">1.1 kts @ 52°</span>
+              </div>
+            </div>
+          </div>
+          <div class="chart-container-box">
+            <canvas id="area-expansion-chart"></canvas>
+          </div>
+        </div>
+
+      </footer>
+
+    </main>
+
+    <!-- RIGHT INSPECTION DRAWER (Attribution, Spread Prediction, Response Plan & Risk Intelligence) -->
+    <aside class="right-inspection-drawer">
+      
+      <!-- Panel 1: Candidate Vessels -->
+      <div class="drawer-section-card">
+        <div class="panel-header-bar">
+          <h2>Candidate Vessels</h2>
+          <span id="drawer-vessels-count" style="font-size: 11px; font-weight: 600; color: var(--primary);">Correlated: 32</span>
+        </div>
+
+        <!-- Vessel Directory Subtabs: Top Suspects & All Corridor Vessels -->
+        <div class="vessel-tab-switcher" style="display: flex; gap: 6px; padding: 4px 0 6px 0; margin-bottom: 6px; border-bottom: 1px solid var(--outline);">
+          <button type="button" id="tab-top-suspects" class="vessel-tab-btn active" style="flex: 1; padding: 5px 8px; font-size: 11px; font-weight: 600; border-radius: 4px; border: 1px solid var(--primary); background: var(--primary); color: #fff; cursor: pointer;">
+            Top Suspects
+          </button>
+          <button type="button" id="tab-all-vessels" class="vessel-tab-btn" style="flex: 1; padding: 5px 8px; font-size: 11px; font-weight: 600; border-radius: 4px; border: 1px solid var(--outline); background: var(--surface-container-low); color: var(--text-muted); cursor: pointer;">
+            All Vessels (<span id="tab-all-count">32</span>)
+          </button>
+        </div>
+
+        <!-- Quick Filter Input for All Vessels Directory -->
+        <div id="vessel-search-wrapper" style="display: none; margin-bottom: 6px;">
+          <input type="text" id="vessel-search-input" placeholder="Search name, MMSI, or type..." style="width: 100%; box-sizing: border-box; padding: 5px 8px; font-size: 11px; border-radius: 4px; border: 1px solid var(--outline); background: var(--surface-container-low); color: var(--dark-navy);" />
+        </div>
+
+        <!-- Candidate Cards (Rank, Vessel, Score, Likelihood) -->
+        <div id="candidates-list-container" class="candidate-list-box">
+          <!-- Rendered by attribution_view.js -->
+        </div>
+
+        <!-- Selected Vessel Details Inspector -->
+        <div id="vessel-detail-container" class="vessel-detail-card">
+          <!-- Rendered by attribution_view.js -->
+        </div>
+      </div>
+
+      <!-- Panel 2: SPREAD PREDICTION (Next 72 Hours) - Exact match from screenshot -->
+      <div class="drawer-section-card spread-prediction-card">
+        <div class="panel-header-bar">
+          <h2>SPREAD PREDICTION <span style="font-size: 11px; font-weight: 500; text-transform: none; color: var(--text-muted);">(Next 72 Hours)</span></h2>
+        </div>
+        <div class="spread-prediction-wrapper">
+          <!-- Heatmap Canvas Viewport -->
+          <div class="spread-canvas-container">
+            <canvas id="spread-prediction-canvas" width="370" height="200"></canvas>
+            
+            <!-- Risk Level Legend Overlay (from screenshot) -->
+            <div class="risk-level-legend-box">
+              <div class="legend-box-title">Risk Level</div>
+              <div class="risk-legend-row"><span class="risk-swatch swatch-very-high"></span> Very High</div>
+              <div class="risk-legend-row"><span class="risk-swatch swatch-high"></span> High</div>
+              <div class="risk-legend-row"><span class="risk-swatch swatch-medium"></span> Medium</div>
+              <div class="risk-legend-row"><span class="risk-swatch swatch-low"></span> Low</div>
+            </div>
+
+            <!-- Wind Direction Box Overlay (from screenshot) -->
+            <div class="wind-direction-indicator-box">
+              <div class="wind-box-title">Wind Direction</div>
+              <div class="wind-arrow-icon" id="wind-arrow-icon" style="transform: rotate(60deg);">↗</div>
+            </div>
+          </div>
+
+          <!-- Bottom Time Scrub Buttons (+12h, +24h, +48h, +72h) -->
+          <div class="spread-time-btn-group">
+            <button class="spread-time-btn" data-hours="12">+12h</button>
+            <button class="spread-time-btn" data-hours="24">+24h</button>
+            <button class="spread-time-btn active" data-hours="48">+48h</button>
+            <button class="spread-time-btn" data-hours="72">+72h</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel 3 & 4 Grid: RESPONSE RECOMMENDATION & SENSITIVE AREAS AT RISK -->
+      <div class="two-col-grid-section">
+        <!-- Response Recommendation & Fleet Allocation -->
+        <div class="drawer-section-card mini-card">
+          <div class="panel-header-mini-dark">
+            <h3>OIL RECOVERY FLEET & EQUIPMENT</h3>
+          </div>
+          <div class="recommendation-list" id="recommendations-container">
+            <div class="recommendation-item">
+              <div class="rec-icon-title">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                <div>
+                  <span style="font-weight: 600;">Deploy Containment Booms</span>
+                  <div style="font-size: 10px; color: var(--text-muted);" id="rec-boom-details">11.5 km encirclement curtain</div>
+                </div>
+              </div>
+              <span class="rec-badge badge-red" id="rec-boom-badge">11.5 km</span>
+            </div>
+            <div class="recommendation-item">
+              <div class="rec-icon-title">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20a2.4 2.4 0 0 0 2 1 2.4 2.4 0 0 0 2-1 2.4 2.4 0 0 1 2-1 2.4 2.4 0 0 1 2 1 2.4 2.4 0 0 0 2 1 2.4 2.4 0 0 0 2-1"/></svg>
+                <div>
+                  <span style="font-weight: 600;">Mobilize Skimmers</span>
+                  <div style="font-size: 10px; color: var(--text-muted);" id="rec-skimmer-details">High-volume weir/brush units (48h)</div>
+                </div>
+              </div>
+              <span class="rec-badge badge-orange" id="rec-skimmer-badge">2 Skimmers</span>
+            </div>
+            <div class="recommendation-item">
+              <div class="rec-icon-title">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20a2.4 2.4 0 0 0 2 1 2.4 2.4 0 0 0 2-1 2.4 2.4 0 0 1 2-1 2.4 2.4 0 0 1 2 1 2.4 2.4 0 0 0 2 1 2.4 2.4 0 0 0 2-1"/><path d="M4 18L3 14l9-8 9 8-1 4"/></svg>
+                <div>
+                  <span style="font-weight: 600;">Oil Storage Tankers</span>
+                  <div style="font-size: 10px; color: var(--text-muted);" id="rec-tanker-details">Temporary emulsion storage (1,500 m³)</div>
+                </div>
+              </div>
+              <span class="rec-badge badge-orange" id="rec-tanker-badge">1 Tanker</span>
+            </div>
+            <div class="recommendation-item">
+              <div class="rec-icon-title">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg>
+                <div>
+                  <span style="font-weight: 600;">Aerial & Observation Patrols</span>
+                  <div style="font-size: 10px; color: var(--text-muted);" id="rec-observation-details">Slick perimeter surveillance & tracking</div>
+                </div>
+              </div>
+              <span class="rec-badge badge-yellow" id="rec-observation-badge">2 Patrols + 1 UAV</span>
+            </div>
+          </div>
+          <button id="btn-open-calc-drawer" class="btn btn-action-secondary-full" style="margin-top: 6px;" title="Adjust Thickness, Recovery Window & Equipment Capacity">
+            Fleet & Volume Calculator ⚙️
+          </button>
+        </div>
+
+        <!-- Sensitive Areas at Risk -->
+        <div class="drawer-section-card mini-card">
+          <div class="panel-header-mini-dark">
+            <h3>SENSITIVE AREAS AT RISK</h3>
+          </div>
+          <div class="sensitive-areas-list">
+            <div class="sensitive-item">
+              <span class="sens-name">Coastal Area (North)</span>
+              <span class="rec-badge badge-red">Very High</span>
+            </div>
+            <div class="sensitive-item">
+              <span class="sens-name">Fishing Zone A</span>
+              <span class="rec-badge badge-orange">High</span>
+            </div>
+            <div class="sensitive-item">
+              <span class="sens-name">Marine Sanctuary</span>
+              <span class="rec-badge badge-orange">High</span>
+            </div>
+            <div class="sensitive-item">
+              <span class="sens-name">Port Area</span>
+              <span class="rec-badge badge-yellow">Medium</span>
+            </div>
+          </div>
+          <button id="btn-view-sensitive-map" class="btn btn-action-secondary-full">View On Map</button>
+        </div>
+      </div>
+
+      <!-- Panel 5: RECOMMENDED PRIORITIES (Red banner matching screenshot) -->
+      <div class="drawer-section-card priority-banner-card">
+        <div class="priority-header-banner">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <span>RECOMMENDED PRIORITIES</span>
+        </div>
+        <div class="priority-content-box">
+          <div class="priority-list">
+            <div class="priority-item" id="priority-item-1">
+              <strong style="color: var(--primary);">Priority 1:</strong> Encircle 9.21 km slick perimeter with 11.5 km containment booms
+            </div>
+            <div class="priority-item" id="priority-item-2">
+              <strong style="color: var(--primary);">Priority 2:</strong> Mobilize 2 offshore skimmers for 712.5 m³ (4,481 bbl) crude recovery
+            </div>
+            <div class="priority-item" id="priority-item-3">
+              <strong style="color: var(--primary);">Priority 3:</strong> Stage 1 recovery tanker (1,500 m³ capacity) at slick perimeter
+            </div>
+            <div class="priority-item" id="priority-item-4">
+              <strong style="color: var(--primary);">Priority 4:</strong> Continuous 2 observation vessels + satellite monitoring along drift vector
+            </div>
+          </div>
+          <button id="btn-generate-action-report" class="btn btn-primary-alert-full">Generate Action Report</button>
+        </div>
+      </div>
+
+      <!-- Panel 6: HISTORICAL RISK MAP (from screenshot) -->
+      <div class="drawer-section-card historical-risk-card">
+        <div class="panel-header-mini-dark">
+          <h3>HISTORICAL RISK MAP</h3>
+        </div>
+        <div class="historical-risk-wrapper">
+          <div class="historical-risk-canvas-box">
+            <canvas id="historical-risk-canvas" width="370" height="90"></canvas>
+            <div class="historical-risk-legend">
+              <span class="risk-swatch swatch-very-high"></span> Very High
+              <span class="risk-swatch swatch-high" style="margin-left: 6px;"></span> High
+              <span class="risk-swatch swatch-medium" style="margin-left: 6px;"></span> Medium
+              <span class="risk-swatch swatch-low" style="margin-left: 6px;"></span> Low
+            </div>
+          </div>
+          <p class="historical-risk-subtext">High-risk zones based on past oil spill incidents and vessel density.</p>
+          <button id="btn-open-risk-modal" class="btn btn-action-secondary-full">View Risk Analysis</button>
+        </div>
+      </div>
+
+    </aside>
+
+  </div>
+
+  <!-- MODAL 1: SAR SATELLITE IMAGE UPLOAD & AI DETECTION -->
+  <div id="modal-upload-sar" class="modal-overlay">
+    <div class="modal-content" style="max-width: 680px;">
+      <div class="modal-header">
+        <h3>AI Satellite SAR & Optical Oil Spill Detection Pipeline</h3>
+        <button class="modal-close-btn">&times;</button>
+      </div>
+      <form id="sar-upload-form">
+        <div class="modal-body">
+          <p style="font-size: 12.5px; color: var(--text-muted); margin-bottom: 12px;">
+            Run automated C-Band SAR Bragg-scattering dark-patch segmentation, radiometric contrast thresholding, and geospatial polygon extraction calibrated to 10m GSD.
+          </p>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+            <div class="form-group">
+              <label>Preset Satellite Scene</label>
+              <select id="sar-preset-select" class="form-control">
+                <option value="preset-chennai">Sentinel-1 SAR (Bay of Bengal / Chennai Coast)</option>
+                <option value="preset-mumbai">Sentinel-1 SAR (Arabian Sea / Mumbai High)</option>
+                <option value="preset-custom">Custom File Upload</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>GSD Resolution & Sensor Mode</label>
+              <select class="form-control">
+                <option>Sentinel-1 IW GRD (10m/px, C-Band VV+VH)</option>
+                <option>Sentinel-2 MSI Optical (10m/px, B2/B3/B4/B8)</option>
+                <option>RADARSAT-2 Fine Quad-Pol (5m/px)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="upload-dropzone" onclick="document.getElementById('sar-file-input').click()">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.5" style="margin-bottom: 4px;">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+            </svg>
+            <div style="font-size: 12.5px; font-weight: 600; color: var(--dark-navy);">Click or drag SAR satellite image file (.png, .tif, .jpg)</div>
+            <div style="font-size: 10.5px; color: var(--text-muted); margin-top: 2px;">Automatic Bilateral Filtering & Adaptive Thresholding</div>
+            <input type="file" id="sar-file-input" accept="image/*" style="display: none;" />
+          </div>
+
+          <!-- AI Segmentation Live Preview Panel -->
+          <div id="ai-segmentation-result-box" style="margin-top: 14px; display: none; background: #081627; border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px; padding: 12px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+              <span style="font-size: 11.5px; font-weight: 800; color: #38bdf8; text-transform: uppercase;">AI Dark-Spot Segmentation Output</span>
+              <span id="ai-detect-badge" class="rec-badge badge-red">CONFIRMED SPILL DETECTED</span>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+              <div>
+                <div style="font-size: 10px; color: #94a3b8; font-weight: 700; margin-bottom: 4px;">ORIGINAL SAR PATCH</div>
+                <img id="ai-preview-sar-img" src="/sar_images/sentinel1_sar_chennai.png" style="width: 100%; height: 110px; object-fit: cover; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1);" />
+              </div>
+              <div>
+                <div style="font-size: 10px; color: #94a3b8; font-weight: 700; margin-bottom: 4px;">AI SEGMENTATION MASK</div>
+                <canvas id="ai-segmentation-canvas" width="280" height="110" style="width: 100%; height: 110px; border-radius: 4px; border: 1px solid rgba(239, 68, 68, 0.5);"></canvas>
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; background: rgba(15, 23, 42, 0.8); padding: 8px; border-radius: 6px;">
+              <div>
+                <div style="font-size: 9.5px; color: #94a3b8; font-weight: 700;">SPILL AREA</div>
+                <div id="ai-res-area" style="font-size: 13px; font-weight: 800; color: #f8fafc;" class="tnum">2.85 km²</div>
+              </div>
+              <div>
+                <div style="font-size: 9.5px; color: #94a3b8; font-weight: 700;">CONFIDENCE</div>
+                <div id="ai-res-conf" style="font-size: 13px; font-weight: 800; color: #34d399;" class="tnum">94%</div>
+              </div>
+              <div>
+                <div style="font-size: 9.5px; color: #94a3b8; font-weight: 700;">DAMPENING RATIO</div>
+                <div id="ai-res-damp" style="font-size: 13px; font-weight: 800; color: #fbbf24;" class="tnum">87.4%</div>
+              </div>
+              <div>
+                <div style="font-size: 9.5px; color: #94a3b8; font-weight: 700;">COMPACTNESS</div>
+                <div id="ai-res-comp" style="font-size: 13px; font-weight: 800; color: #38bdf8;" class="tnum">0.72</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-modal-cancel">Cancel</button>
+          <button type="submit" id="btn-run-ai-seg" class="btn btn-primary">Run AI Segmentation</button>
+          <button type="button" id="btn-project-ai-map" class="btn btn-primary-alert-full" style="display: none; width: auto; padding: 8px 16px;">Project AI Polygon to Map</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 2: CORRELATION & HYDRODYNAMIC PARAMETERS TUNER -->
+  <div id="modal-tuner" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Hydrodynamic Drift & AIS Correlation Parameters</h3>
+        <button class="modal-close-btn">&times;</button>
+      </div>
+      <form id="tuner-form">
+        <div class="modal-body">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label>Surface Current Speed (knots)</label>
+              <input type="number" step="0.1" id="tuner-cur-speed" class="form-control" value="0.8" />
+            </div>
+            <div class="form-group">
+              <label>Current Direction (degrees)</label>
+              <input type="number" step="1" id="tuner-cur-dir" class="form-control" value="45" />
+            </div>
+            <div class="form-group">
+              <label>10m Wind Speed (knots)</label>
+              <input type="number" step="0.5" id="tuner-wind-speed" class="form-control" value="12.0" />
+            </div>
+            <div class="form-group">
+              <label>Wind Direction (degrees)</label>
+              <input type="number" step="1" id="tuner-wind-dir" class="form-control" value="60" />
+            </div>
+            <div class="form-group">
+              <label>Search Radius (km)</label>
+              <input type="number" step="1" id="tuner-radius" class="form-control" value="25" />
+            </div>
+            <div class="form-group">
+              <label>Backtrack Time Window (hours)</label>
+              <input type="number" step="0.5" id="tuner-hours" class="form-control" value="4.0" />
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-modal-cancel">Cancel</button>
+          <button type="submit" class="btn btn-primary">Recalculate Attribution</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 3: HISTORICAL RISK ANALYSIS -->
+  <div id="modal-risk-analysis" class="modal-overlay">
+    <div class="modal-content" style="max-width: 620px;">
+      <div class="modal-header">
+        <h3>Historical Risk Analysis & Environmental Vulnerability</h3>
+        <button class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="risk-modal-grid">
+          <div class="risk-modal-stat-card">
+            <span class="stat-label">Regional Threat Tier</span>
+            <span class="stat-value" style="color: #e53e3e;">HIGH RISK ZONE</span>
+          </div>
+          <div class="risk-modal-stat-card">
+            <span class="stat-label">Past Incidents (5 Years)</span>
+            <span class="stat-value tnum">14 Spills</span>
+          </div>
+          <div class="risk-modal-stat-card">
+            <span class="stat-label">Avg Daily Vessel Traffic</span>
+            <span class="stat-value tnum">142 Tankers</span>
+          </div>
+          <div class="risk-modal-stat-card">
+            <span class="stat-label">Habitat Vulnerability</span>
+            <span class="stat-value tnum" style="color: #dd6b20;">8.4 / 10</span>
+          </div>
+        </div>
+
+        <div style="margin-top: 14px;">
+          <h4 style="font-size: 13px; font-weight: 700; color: var(--dark-navy); margin-bottom: 6px;">Bathymetric & Hydrodynamic Drift Sensitivity</h4>
+          <p style="font-size: 12px; color: var(--text-muted); line-height: 1.5;">
+            Based on historical AIS corridor density and 10-year seasonal wind pattern vectors, this maritime grid exhibits elevated vulnerability to heavy fuel oil (HFO) advection toward northern mangrove sanctuaries and commercial fishing zones.
+          </p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-modal-cancel">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 4: CLEAN-UP FLEET & SPILL VOLUME MOBILIZATION CALCULATOR -->
+  <div id="modal-fleet-calculator" class="modal-overlay">
+    <div class="modal-content" style="max-width: 820px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M2 20a2.4 2.4 0 0 0 2 1 2.4 2.4 0 0 0 2-1 2.4 2.4 0 0 1 2-1 2.4 2.4 0 0 1 2 1 2.4 2.4 0 0 0 2 1 2.4 2.4 0 0 0 2-1 2.4 2.4 0 0 1 2-1 2.4 2.4 0 0 1 2 1 2.4 2.4 0 0 0 2 1 2.4 2.4 0 0 0 2-1"/>
+            <path d="M4 18L3 14l9-8 9 8-1 4"/>
+          </svg>
+          <div>
+            <h3 style="margin: 0; font-size: 16px;">Oil Spill Volume & Clean-Up Fleet Mobilization Calculator</h3>
+            <span style="font-size: 11px; color: var(--text-muted);">Calibrated with Bonn Agreement Appearance Code & ASTM/USCG Effective Daily Recovery Capacity</span>
+          </div>
+        </div>
+        <button class="modal-close-btn">&times;</button>
+      </div>
+
+      <div class="modal-body" style="padding: 16px 20px;">
+        <div class="calc-modal-grid">
+          
+          <!-- LEFT: Spill Parameters & Interactive Sliders -->
+          <div class="calc-input-panel">
+            <h4 class="calc-panel-title">1. Spill Physical Geometry</h4>
+            
+            <div class="calc-form-row">
+              <div class="form-group" style="flex: 1;">
+                <label>Spill Area (km²)</label>
+                <input type="number" id="calc-input-area" class="form-control tnum" step="0.05" min="0.01" value="2.85" />
+              </div>
+              <div class="form-group" style="flex: 1;">
+                <label>Slick Perimeter (km)</label>
+                <input type="number" id="calc-input-perimeter" class="form-control tnum" step="0.1" min="0.1" value="9.21" />
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-top: 10px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <label style="margin: 0;">Slick Thickness (mm)</label>
+                <span class="calc-thick-badge tnum" id="calc-thick-display">0.25 mm (250 µm)</span>
+              </div>
+              <input type="range" id="calc-slider-thickness" min="0.001" max="2.0" step="0.005" value="0.25" style="width: 100%; accent-color: #ea580c; cursor: pointer;" />
+              
+              <!-- Quick Bonn Presets -->
+              <div class="bonn-quick-btn-group">
+                <button type="button" class="btn-bonn-chip" data-thick="0.0001" title="Sheen: 0.1 µm / 0.0001 mm">Sheen (0.1µm)</button>
+                <button type="button" class="btn-bonn-chip" data-thick="0.0025" title="Rainbow: 2.5 µm / 0.0025 mm">Rainbow (2.5µm)</button>
+                <button type="button" class="btn-bonn-chip" data-thick="0.025" title="Metallic: 25 µm / 0.025 mm">Metallic (25µm)</button>
+                <button type="button" class="btn-bonn-chip" data-thick="0.10" title="Discontinuous Crude: 100 µm / 0.1 mm">Discont (0.1mm)</button>
+                <button type="button" class="btn-bonn-chip active" data-thick="0.25" title="Continuous Heavy Crude: 250 µm / 0.25 mm">Heavy Crude (0.25mm)</button>
+              </div>
+            </div>
+
+            <h4 class="calc-panel-title" style="margin-top: 16px;">2. Operational Recovery Parameters</h4>
+            
+            <div class="calc-form-row">
+              <div class="form-group" style="flex: 1;">
+                <label>Target Recovery Window</label>
+                <select id="calc-input-window" class="form-control">
+                  <option value="24">24 Hours (Urgent / High Risk)</option>
+                  <option value="36">36 Hours</option>
+                  <option value="48" selected>48 Hours (Standard Offshore)</option>
+                  <option value="72">72 Hours (Extended Operation)</option>
+                </select>
+              </div>
+              <div class="form-group" style="flex: 1;">
+                <label>Skimmer Pump Rate</label>
+                <select id="calc-input-skimmer-rate" class="form-control">
+                  <option value="30">30 m³/h (Weir Skimmer)</option>
+                  <option value="40" selected>40 m³/h (Oleophilic Brush/Drum)</option>
+                  <option value="60">60 m³/h (High-Capacity Marine)</option>
+                  <option value="100">100 m³/h (Heavy Offshore LMS)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="calc-form-row" style="margin-top: 8px;">
+              <div class="form-group" style="flex: 1;">
+                <label>Storage Tanker Capacity</label>
+                <select id="calc-input-tanker-cap" class="form-control">
+                  <option value="1000">1,000 m³ (~6,300 bbl barge)</option>
+                  <option value="1500" selected>1,500 m³ (~9,500 bbl OSV)</option>
+                  <option value="2500">2,500 m³ (~15,700 bbl tanker)</option>
+                  <option value="5000">5,000 m³ (Coastal tanker)</option>
+                </select>
+              </div>
+              <div class="form-group" style="flex: 1;">
+                <label>Water Cut Emulsion Factor</label>
+                <input type="text" class="form-control" value="35% (Emulsified Water)" disabled />
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT: Live Calculated Equipment & Volume Results -->
+          <div class="calc-output-panel">
+            <h4 class="calc-panel-title">3. Calculated Spill Volume & Equipment Needed</h4>
+
+            <!-- Primary Volume Box -->
+            <div class="calc-primary-volume-card">
+              <span class="calc-label">Calculated Overall Spill Volume</span>
+              <div class="calc-big-stat tnum" id="modal-res-volume">712.5 m³</div>
+              <div class="calc-stat-subrow tnum">
+                <span id="modal-res-bbl">4,481 Barrels (bbl)</span> • 
+                <span id="modal-res-tons">627.0 Metric Tons</span> • 
+                <span id="modal-res-gal">188,223 US Gallons</span>
+              </div>
+              <div class="calc-emulsion-note" id="modal-res-emulsion">
+                Total Recovered Liquid with Water Emulsion: <b>961.9 m³</b> (6,050 bbl)
+              </div>
+            </div>
+
+            <!-- Resource Allocation Cards Grid -->
+            <div class="calc-resource-grid">
+              
+              <!-- Skimmers -->
+              <div class="calc-resource-card">
+                <div class="calc-res-icon-title">
+                  <span class="calc-icon">⚙️</span>
+                  <div>
+                    <strong class="calc-res-title">Offshore Skimmers</strong>
+                    <div class="calc-res-sub">Effective recovery capacity</div>
+                  </div>
+                </div>
+                <div class="calc-res-number tnum" id="modal-res-skimmers" style="color: #ea580c;">2 Units</div>
+                <div class="calc-res-detail" id="modal-res-skimmers-detail">2 units @ 48h target window</div>
+              </div>
+
+              <!-- Oil Storage Tankers -->
+              <div class="calc-resource-card">
+                <div class="calc-res-icon-title">
+                  <span class="calc-icon">🚢</span>
+                  <div>
+                    <strong class="calc-res-title">Oil Tankers / Barges</strong>
+                    <div class="calc-res-sub">Emulsion storage capacity</div>
+                  </div>
+                </div>
+                <div class="calc-res-number tnum" id="modal-res-tankers" style="color: #0284c7;">1 Tanker</div>
+                <div class="calc-res-detail" id="modal-res-tankers-detail">1 vessel (1,500 m³ capacity)</div>
+              </div>
+
+              <!-- Containment Booms -->
+              <div class="calc-resource-card">
+                <div class="calc-res-icon-title">
+                  <span class="calc-icon">🛡️</span>
+                  <div>
+                    <strong class="calc-res-title">Containment Booms</strong>
+                    <div class="calc-res-sub">1.25× Perimeter slack</div>
+                  </div>
+                </div>
+                <div class="calc-res-number tnum" id="modal-res-booms" style="color: #16a34a;">11.5 km</div>
+                <div class="calc-res-detail" id="modal-res-booms-detail">11,510 m curtain booms</div>
+              </div>
+
+              <!-- Surveillance & Observation -->
+              <div class="calc-resource-card">
+                <div class="calc-res-icon-title">
+                  <span class="calc-icon">🚁</span>
+                  <div>
+                    <strong class="calc-res-title">Observation Assets</strong>
+                    <div class="calc-res-sub">Perimeter tracking</div>
+                  </div>
+                </div>
+                <div class="calc-res-number tnum" id="modal-res-observation" style="color: #d97706;">2 Boats + 1 UAV</div>
+                <div class="calc-res-detail" id="modal-res-observation-detail">Continuous slick tracking</div>
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 11.5px; color: var(--text-muted);">
+          *Based on Fay spreading model, NOAA GNOME rules & Bonn Agreement 2004 standards.
+        </span>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" class="btn btn-secondary btn-modal-cancel">Close</button>
+          <button type="button" id="btn-apply-calculator" class="btn btn-primary">Apply to Map & Scenario</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Leaflet GIS Engine (Local Vendor with CDN fallback) -->
+  <script src="/vendor/leaflet.js"></script>
+  
+  <!-- Security Authentication & 30-Min Session Manager -->
+  <script src="/js/auth.js?v=3.0"></script>
+
+  <!-- Application JS Modules with Cache-Buster -->
+  <script src="/js/map.js?v=2.2"></script>
+  <script src="/js/charts.js?v=2.2"></script>
+  <script src="/js/attribution_view.js?v=2.2"></script>
+  <script src="/js/app.js?v=2.2"></script>
+</body>
+</html>

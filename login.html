@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Maritime Intelligence Command - Authentication Terminal</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg-dark: #020617;
+      --bg-navy: #071329;
+      --card-bg: rgba(11, 22, 44, 0.88);
+      --card-border: rgba(56, 189, 248, 0.28);
+      --primary-cyan: #38bdf8;
+      --primary-blue: #0284c7;
+      --primary-hover: #0369a1;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --accent-gold: #f59e0b;
+      --danger-red: #ef4444;
+      --success-green: #10b981;
+      --font-display: 'Manrope', -apple-system, sans-serif;
+      --font-body: 'Inter', -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      width: 100vw;
+      background: radial-gradient(circle at 50% 35%, #0b1c3d 0%, #030816 100%);
+      font-family: var(--font-body);
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow-x: hidden;
+      padding: 20px;
+    }
+
+    /* Tactical Background Grid & Radar */
+    .bg-grid {
+      position: fixed;
+      inset: 0;
+      background-image: 
+        linear-gradient(to right, rgba(56, 189, 248, 0.05) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(56, 189, 248, 0.05) 1px, transparent 1px);
+      background-size: 36px 36px;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .radar-orbit {
+      position: fixed;
+      width: 800px;
+      height: 800px;
+      border-radius: 50%;
+      border: 1px dashed rgba(56, 189, 248, 0.12);
+      pointer-events: none;
+      animation: rotateRadar 40s linear infinite;
+      z-index: 1;
+    }
+
+    .radar-orbit::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 500px;
+      height: 500px;
+      border-radius: 50%;
+      border: 1px solid rgba(56, 189, 248, 0.08);
+    }
+
+    @keyframes rotateRadar {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    /* Ambient Glow */
+    .ambient-glow {
+      position: fixed;
+      top: 15%;
+      width: 600px;
+      height: 350px;
+      background: radial-gradient(ellipse, rgba(14, 165, 233, 0.14) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* Main Container */
+    .login-container {
+      position: relative;
+      z-index: 10;
+      width: 100%;
+      max-width: 450px;
+      animation: enterFadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes enterFadeUp {
+      from { opacity: 0; transform: translateY(20px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* Top Brand Header */
+    .brand-header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .emblem-wrapper {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(14, 165, 233, 0.25) 0%, rgba(2, 6, 23, 0.8) 100%);
+      border: 1.5px solid rgba(56, 189, 248, 0.45);
+      color: var(--primary-cyan);
+      box-shadow: 0 0 25px rgba(14, 165, 233, 0.3);
+      margin-bottom: 14px;
+    }
+
+    .classification-tag {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--primary-cyan);
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin-bottom: 10px;
+    }
+
+    .brand-title {
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      color: #ffffff;
+      margin-bottom: 6px;
+    }
+
+    .brand-subtitle {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    /* Login Card */
+    .login-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      padding: 32px 28px;
+      box-shadow: 
+        0 30px 70px -15px rgba(0, 0, 0, 0.85),
+        0 0 45px rgba(14, 165, 233, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+
+    /* Alerts */
+    .alert-box {
+      display: none;
+      padding: 12px 14px;
+      border-radius: 10px;
+      font-size: 12.5px;
+      line-height: 1.45;
+      margin-bottom: 20px;
+      animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .alert-box.error {
+      background: rgba(239, 68, 68, 0.16);
+      border: 1px solid rgba(239, 68, 68, 0.45);
+      color: #fca5a5;
+    }
+
+    .alert-box.info {
+      background: rgba(245, 158, 11, 0.16);
+      border: 1px solid rgba(245, 158, 11, 0.45);
+      color: #fde68a;
+    }
+
+    .alert-box.success {
+      background: rgba(16, 185, 129, 0.16);
+      border: 1px solid rgba(16, 185, 129, 0.45);
+      color: #6ee7b7;
+    }
+
+    /* Form Fields */
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #cbd5e1;
+      margin-bottom: 8px;
+    }
+
+    .form-group label svg {
+      color: var(--primary-cyan);
+    }
+
+    .input-box {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .input-box input {
+      width: 100%;
+      height: 44px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(71, 85, 105, 0.55);
+      border-radius: 9px;
+      padding: 0 14px;
+      font-size: 13.5px;
+      color: #ffffff;
+      font-family: inherit;
+      transition: all 0.2s ease;
+    }
+
+    .input-box input:focus {
+      outline: none;
+      border-color: var(--primary-cyan);
+      background: rgba(15, 23, 42, 0.98);
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+    }
+
+    .btn-toggle-pw {
+      position: absolute;
+      right: 10px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+
+    .btn-toggle-pw:hover {
+      color: #ffffff;
+    }
+
+    .field-hint {
+      display: block;
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 5px;
+    }
+
+    /* Submit Button */
+    .btn-submit {
+      width: 100%;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      background: linear-gradient(135deg, var(--primary-blue) 0%, #0369a1 100%);
+      color: #ffffff;
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      border-radius: 9px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 6px 18px rgba(2, 132, 199, 0.35);
+      transition: all 0.2s ease;
+    }
+
+    .btn-submit:hover:not(:disabled) {
+      background: linear-gradient(135deg, #0369a1 0%, #075985 100%);
+      box-shadow: 0 8px 24px rgba(2, 132, 199, 0.5);
+      transform: translateY(-1px);
+    }
+
+    .btn-submit:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+
+    /* Security Notice Footer */
+    .card-footer {
+      margin-top: 22px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(51, 65, 85, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 11.5px;
+      color: var(--text-muted);
+    }
+
+    .pulse-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--primary-cyan);
+      box-shadow: 0 0 8px var(--primary-cyan);
+    }
+
+    /* Spinner */
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: #ffffff;
+      animation: spin 0.65s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Background Elements -->
+  <div class="bg-grid"></div>
+  <div class="radar-orbit"></div>
+  <div class="ambient-glow"></div>
+
+  <!-- Login Container -->
+  <div class="login-container">
+    
+    <div class="brand-header">
+      <div class="emblem-wrapper">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="9"/>
+          <circle cx="12" cy="12" r="3"/>
+          <line x1="12" y1="3" x2="12" y2="9"/>
+          <line x1="12" y1="15" x2="12" y2="21"/>
+          <line x1="3" y1="12" x2="9" y2="12"/>
+          <line x1="15" y1="12" x2="21" y2="12"/>
+        </svg>
+      </div>
+      <div><span class="classification-tag">DEFENSE LEVEL 4 • RESTRICTED</span></div>
+      <h1 class="brand-title">MARITIME INTELLIGENCE COMMAND</h1>
+      <p class="brand-subtitle">SIH26143: Satellite SAR & AIS Oil Spill Attribution Command Center</p>
+    </div>
+
+    <div class="login-card">
+      <div id="login-alert" class="alert-box"></div>
+
+      <form id="login-form" autocomplete="off">
+        <div class="form-group">
+          <label for="operator-id">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+            </svg>
+            Authorized Operator Login ID (Single ID Protocol)
+          </label>
+          <div class="input-box">
+            <input 
+              type="text" 
+              id="operator-id" 
+              value="ICG-COMMAND-01" 
+              placeholder="e.g. ICG-COMMAND-01" 
+              required 
+              spellcheck="false"
+            />
+          </div>
+          <span class="field-hint">Single authorized identity protocol enforced by Maritime Terminal Security.</span>
+        </div>
+
+        <div class="form-group">
+          <label for="password">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+            Clearance Access Key / Password
+          </label>
+          <div class="input-box">
+            <input 
+              type="password" 
+              id="password" 
+              placeholder="Enter clearance password" 
+              required
+            />
+            <button type="button" id="btn-toggle-pw" class="btn-toggle-pw" tabindex="-1">Show</button>
+          </div>
+        </div>
+
+        <button type="submit" id="btn-submit" class="btn-submit" style="margin-top: 24px;">
+          <span>Authenticate & Access Dashboard</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+          </svg>
+        </button>
+      </form>
+
+      <div class="card-footer">
+        <span class="pulse-dot"></span>
+        <span><strong>30-Minute Shift Auto-Lock</strong>: Unattended terminals auto-lock.</span>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const loginForm = document.getElementById('login-form');
+    const operatorIdInput = document.getElementById('operator-id');
+    const passwordInput = document.getElementById('password');
+    const togglePwBtn = document.getElementById('btn-toggle-pw');
+    const submitBtn = document.getElementById('btn-submit');
+    const alertBox = document.getElementById('login-alert');
+
+    // Check URL parameters for reasons (e.g., ?reason=locked, ?reason=expired)
+    const urlParams = new URLSearchParams(window.location.search);
+    const reason = urlParams.get('reason');
+    if (reason === 'locked') {
+      showAlert('Terminal auto-locked after 30-minute shift limit or inactivity. Please re-authenticate.', 'info');
+    } else if (reason === 'expired') {
+      showAlert('Session expired. Please enter credentials to resume.', 'info');
+    } else if (reason === 'logged_out') {
+      showAlert('Session terminated successfully.', 'info');
+    }
+
+    // Toggle Password Visibility
+    togglePwBtn.addEventListener('click', () => {
+      const isPw = passwordInput.type === 'password';
+      passwordInput.type = isPw ? 'text' : 'password';
+      togglePwBtn.textContent = isPw ? 'Hide' : 'Show';
+    });
+
+    function showAlert(msg, type = 'error') {
+      alertBox.textContent = msg;
+      alertBox.className = `alert-box ${type}`;
+      alertBox.style.display = 'block';
+    }
+
+    // Handle Form Submit
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const opId = operatorIdInput.value.trim();
+      const pw = passwordInput.value.trim();
+
+      if (!opId || !pw) {
+        showAlert('Please enter both Operator ID and Password.');
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = `<span class="spinner"></span> <span>Verifying Clearance...</span>`;
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ operator_id: opId, password: pw })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          showAlert(data.detail || 'Authorization failed. Invalid single Login ID or Password.');
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = `<span>Authenticate & Access Dashboard</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+            </svg>`;
+          return;
+        }
+
+        // 30-Minute session lifetime in milliseconds
+        const SESSION_DURATION_MS = 30 * 60 * 1000;
+        const expiresAt = Date.now() + SESSION_DURATION_MS;
+
+        // Save session state
+        sessionStorage.setItem('icg_session_token', data.token);
+        sessionStorage.setItem('icg_operator_id', data.operator_id);
+        sessionStorage.setItem('icg_session_expires_at', expiresAt.toString());
+        sessionStorage.setItem('icg_session_locked', 'false');
+
+        localStorage.setItem('icg_session_token', data.token);
+        localStorage.setItem('icg_operator_id', data.operator_id);
+        localStorage.setItem('icg_session_expires_at', expiresAt.toString());
+
+        showAlert('Clearance Verified! Redirecting to Command Center...', 'success');
+
+        // Transition to homepage (index.html)
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 500);
+
+      } catch (err) {
+        console.error('Login error:', err);
+        showAlert('Network error connecting to Maritime Security Gateway.');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = `<span>Authenticate & Access Dashboard</span>`;
+      }
+    });
+  </script>
+</body>
+</html>
